@@ -11,7 +11,7 @@ swiftc -O ancbar.swift -o "$MACOS/ancbar"    # menu-bar front end (CFBundleExecu
 
 # Icon: icon.png -> AppIcon.icns (regenerate icon.png with icon.swift if missing).
 mkdir -p "$APP/Contents/Resources"
-[ -f icon.png ] || { swiftc -O icon.swift -o /tmp/mkicon && /tmp/mkicon icon.png; }
+[ -f icon.png ] || { TMPBIN=$(mktemp -d); swiftc -O icon.swift -o "$TMPBIN/mkicon" && "$TMPBIN/mkicon" icon.png; rm -rf "$TMPBIN"; }
 ICONSET=$(mktemp -d)/AppIcon.iconset; mkdir -p "$ICONSET"
 for s in 16 32 128 256 512; do
     sips -z $s $s        icon.png --out "$ICONSET/icon_${s}x${s}.png"    >/dev/null
