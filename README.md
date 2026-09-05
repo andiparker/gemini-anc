@@ -34,11 +34,6 @@ reconnects to it directly on later runs, skipping the scan-for-advertisement
 wait. Warm runs are ~1.5–2.5s versus ~8–13s cold. If the cached device is stale
 or out of range, it falls back to a fresh scan.
 
-## `spike/`
-
-Throwaway BLE exploration scripts used to reverse the protocol (GATT dump,
-scanning, GAIA probing, etc.). Not needed to use the tool.
-
 ## Notes
 
 - macOS only (uses CoreBluetooth).
