@@ -26,12 +26,14 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.button?.image = NSImage(systemSymbolName: "headphones", accessibilityDescription: "ANC")
         item.button?.image?.isTemplate = true
         let menu = NSMenu()
+        menu.autoenablesItems = false  // keep the battery row full-strength; !busy guards prevent double-clicks
         for (label, mode, _) in modes {
             let mi = NSMenuItem(title: label, action: #selector(pick(_:)), keyEquivalent: "")
             mi.target = self; mi.representedObject = mode; menu.addItem(mi)
         }
         menu.addItem(.separator())
-        batteryItem = NSMenuItem(title: "Battery: …", action: nil, keyEquivalent: ""); batteryItem.isEnabled = false; menu.addItem(batteryItem)
+        batteryItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""); menu.addItem(batteryItem)
+        setBattery("🔋  …")
         menu.addItem(.separator())
         let r = NSMenuItem(title: "Refresh", action: #selector(refresh), keyEquivalent: "r"); r.target = self; menu.addItem(r)
         let a = NSMenuItem(title: "About ANC", action: #selector(about), keyEquivalent: ""); a.target = self; menu.addItem(a)
@@ -73,9 +75,20 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Battery lines look like "left  34%"; collapse padding and show compactly. Only a status
         // read carries them — leave the last-known value in place after a plain mode write.
         let parts = lines.dropFirst().filter { !$0.hasPrefix("case") }  // buds only; case ruins the look
-            .map { $0.split(separator: " ").filter { !$0.isEmpty }.joined(separator: " ") }
-        if !parts.isEmpty { batteryItem.title = "Battery:  " + parts.joined(separator: "   ·   ") }
-        else if output == nil { batteryItem.title = "Battery: unavailable" }  // fetch failed; don't leave a stale "…"
+            .map { l -> String in
+                let t = l.split(separator: " ").filter { !$0.isEmpty }
+                let name = t.first.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? ""  // Left / Right
+                return "\(name) \(t.count > 1 ? String(t[1]) : "")"
+            }
+        if !parts.isEmpty { setBattery("🔋  " + parts.joined(separator: "     ")) }
+        else if output == nil { setBattery("🔋  unavailable") }  // fetch failed; don't leave a stale "…"
+    }
+
+    // Full-strength, slightly heavier text so the battery row reads clearly (a plain disabled item dims to grey).
+    func setBattery(_ s: String) {
+        batteryItem.attributedTitle = NSAttributedString(string: s, attributes: [
+            .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+            .foregroundColor: NSColor.labelColor])
     }
 
     @objc func pick(_ sender: NSMenuItem) {
@@ -93,8 +106,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ])
     }
     @objc func quit() { NSApp.terminate(nil) }
-
-    func validateMenuItem(_ mi: NSMenuItem) -> Bool { !busy }
 }
 
 let app = NSApplication.shared
