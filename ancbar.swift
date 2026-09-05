@@ -34,6 +34,7 @@ final class App: NSObject, NSApplicationDelegate {
         batteryItem = NSMenuItem(title: "Battery: …", action: nil, keyEquivalent: ""); batteryItem.isEnabled = false; menu.addItem(batteryItem)
         menu.addItem(.separator())
         let r = NSMenuItem(title: "Refresh", action: #selector(refresh), keyEquivalent: "r"); r.target = self; menu.addItem(r)
+        let a = NSMenuItem(title: "About ANC", action: #selector(about), keyEquivalent: ""); a.target = self; menu.addItem(a)
         let q = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"); q.target = self; menu.addItem(q)
         item.menu = menu
         refresh()  // seed the checkmark from the buds
@@ -76,6 +77,15 @@ final class App: NSObject, NSApplicationDelegate {
         anc(mode) { self.apply($0 ?? self.current.map { c in modes.first { $0.1 == c }?.2 ?? "" }) }
     }
     @objc func refresh() { guard !busy else { return }; anc("status") { self.apply($0) } }
+    @objc func about() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: "ANC",
+            .applicationVersion: "1.0",
+            .credits: NSAttributedString(string: "Devialet Gemini II noise-cancellation control"),
+            .init(rawValue: "Copyright"): "© 2026 Andi Parker",
+        ])
+    }
     @objc func quit() { NSApp.terminate(nil) }
 
     func validateMenuItem(_ mi: NSMenuItem) -> Bool { !busy }

@@ -13,6 +13,8 @@ TMPDMG=$(mktemp -u).dmg
 rm -f ANC.dmg
 
 # Build a writable DMG, populate it, then let Finder record the layout.
+# Must mount in /Volumes so Finder can address the volume by name ("disk ANC").
+hdiutil detach "/Volumes/$VOL" -force -quiet 2>/dev/null || true  # clear a stale mount of the same name
 hdiutil create -volname "$VOL" -size 20m -fs HFS+ -ov -quiet "$TMPDMG"
 hdiutil attach "$TMPDMG" -noautoopen -quiet
 MNT="/Volumes/$VOL"
