@@ -40,6 +40,21 @@ To run the front end bare instead: `swiftc -O ancbar.swift -o ancbar && ./ancbar
 (double-clicking the bare binary opens Terminal; the `.app` does not). It finds
 the `anc` binary via `$ANC_BIN`, a sibling binary, then `$PATH`.
 
+## Distribution (.dmg)
+
+```sh
+./build-dmg.sh      # builds ANC.app, then packages ANC.dmg
+```
+
+Opening ANC.dmg shows ANC.app next to an Applications shortcut — drag the app
+onto it to install.
+
+The app is **unsigned and not notarized**. On the machine that built it, it
+opens normally. Anyone else who downloads the DMG will be blocked by Gatekeeper
+and must right-click the app → **Open** the first time. For frictionless
+distribution, sign with a Developer ID and notarize (see the commented steps in
+`build-dmg.sh`); that needs a paid Apple Developer account.
+
 ## How it works
 
 The buds don't advertise a name or service UUID, so the tool finds them by

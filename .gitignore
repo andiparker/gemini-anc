@@ -1,6 +1,8 @@
 anc
 ancbar
 ANC.app/
+ANC.dmg
+icon-*.png
 .anc-peer
 *.dSYM/
 spike/
