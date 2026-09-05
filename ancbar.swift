@@ -72,7 +72,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Battery lines look like "left  34%"; collapse padding and show compactly. Only a status
         // read carries them — leave the last-known value in place after a plain mode write.
-        let parts = lines.dropFirst().map { $0.split(separator: " ").filter { !$0.isEmpty }.joined(separator: " ") }
+        let parts = lines.dropFirst().filter { !$0.hasPrefix("case") }  // buds only; case ruins the look
+            .map { $0.split(separator: " ").filter { !$0.isEmpty }.joined(separator: " ") }
         if !parts.isEmpty { batteryItem.title = "Battery:  " + parts.joined(separator: "   ·   ") }
         else if output == nil { batteryItem.title = "Battery: unavailable" }  // fetch failed; don't leave a stale "…"
     }
