@@ -52,18 +52,28 @@ the `anc` binary via `$ANC_BIN`, a sibling binary, then `$PATH`.
 
 ## Distribution (.dmg)
 
+Download `ANC.dmg` from the [latest release](https://github.com/andiparker/gemini-anc/releases/latest),
+open it, and drag **ANC** onto the Applications shortcut. The release build is
+signed with a Developer ID and notarized by Apple, so it opens with no Gatekeeper
+warning.
+
+Build it yourself:
+
 ```sh
-./build-dmg.sh      # builds ANC.app, then packages ANC.dmg
+./build-dmg.sh      # builds ANC.app, then packages ANC.dmg (unsigned)
 ```
 
-Opening ANC.dmg shows ANC.app next to an Applications shortcut — drag the app
-onto it to install.
+An unsigned local build opens fine on the machine that built it. To produce a
+signed + notarized DMG, set your Developer ID identity and a stored `notarytool`
+profile, then run the same script:
 
-The app is **unsigned and not notarized**. On the machine that built it, it
-opens normally. Anyone else who downloads the DMG will be blocked by Gatekeeper
-and must right-click the app → **Open** the first time. For frictionless
-distribution, sign with a Developer ID and notarize (see the commented steps in
-`build-dmg.sh`); that needs a paid Apple Developer account.
+```sh
+SIGN_ID="Developer ID Application: NAME (TEAMID)" NOTARY_PROFILE=<profile> ./build-dmg.sh
+```
+
+`SIGN_ID` signs the binaries and bundle with the hardened runtime; `NOTARY_PROFILE`
+submits the DMG to Apple and staples the ticket. Create the profile once with
+`xcrun notarytool store-credentials`. Both require a paid Apple Developer account.
 
 ## How it works
 
