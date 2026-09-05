@@ -14,7 +14,7 @@ func ancBinary() -> String {
     return "anc"  // fall back to PATH
 }
 
-final class App: NSObject, NSApplicationDelegate {
+final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var item: NSStatusItem!
     var batteryItem: NSMenuItem!
     let bin = ancBinary()
@@ -36,9 +36,13 @@ final class App: NSObject, NSApplicationDelegate {
         let r = NSMenuItem(title: "Refresh", action: #selector(refresh), keyEquivalent: "r"); r.target = self; menu.addItem(r)
         let a = NSMenuItem(title: "About ANC", action: #selector(about), keyEquivalent: ""); a.target = self; menu.addItem(a)
         let q = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"); q.target = self; menu.addItem(q)
+        menu.delegate = self
         item.menu = menu
         refresh()  // seed the checkmark from the buds
     }
+
+    // Re-read whenever the menu opens so mode + battery are always current (values land ~2s later).
+    func menuWillOpen(_ menu: NSMenu) { refresh() }
 
     // Run `anc <arg>` off the main thread; deliver trimmed stdout (or nil on failure) back on main.
     func anc(_ arg: String, _ done: @escaping (String?) -> Void) {
@@ -70,6 +74,7 @@ final class App: NSObject, NSApplicationDelegate {
         // read carries them — leave the last-known value in place after a plain mode write.
         let parts = lines.dropFirst().map { $0.split(separator: " ").filter { !$0.isEmpty }.joined(separator: " ") }
         if !parts.isEmpty { batteryItem.title = "Battery:  " + parts.joined(separator: "   ·   ") }
+        else if output == nil { batteryItem.title = "Battery: unavailable" }  // fetch failed; don't leave a stale "…"
     }
 
     @objc func pick(_ sender: NSMenuItem) {
