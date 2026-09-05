@@ -1,7 +1,7 @@
 # gemini-anc
 
 Control active noise cancellation on **Devialet Gemini II** earbuds from macOS,
-over BLE — no phone app needed. A single Swift file talking to the Devialet
+over BLE â no phone app needed. A single Swift file talking to the Devialet
 Audio GATT service.
 
 ## Build
@@ -22,6 +22,20 @@ anc status        # print the current mode
 Bluetooth must be on and the buds powered/in range. First run scans for the
 buds; later runs reconnect directly (see below).
 
+## Menu-bar app
+
+A tiny menu-bar front end that shells out to `anc`:
+
+```sh
+swiftc -O ancbar.swift -o ancbar
+./ancbar
+```
+
+It sits in the menu bar (no Dock icon), shows the current mode with a checkmark,
+and switches modes on click. Keep `ancbar` next to the `anc` binary, or point it
+at one with `ANC_BIN=/path/to/anc ./ancbar`. Each action does a fresh BLE
+reconnect, so expect ~1.5–2.5s per click.
+
 ## How it works
 
 The buds don't advertise a name or service UUID, so the tool finds them by
@@ -31,7 +45,7 @@ the Audio service, and reads/writes the `CurrentAncConfiguration` characteristic
 
 After the first connect it caches the peripheral's UUID to `~/.anc-peer` and
 reconnects to it directly on later runs, skipping the scan-for-advertisement
-wait. Warm runs are ~1.5–2.5s versus ~8–13s cold. If the cached device is stale
+wait. Warm runs are ~1.5â2.5s versus ~8â13s cold. If the cached device is stale
 or out of range, it falls back to a fresh scan.
 
 ## Notes
