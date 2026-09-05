@@ -8,6 +8,17 @@ cd "$(dirname "$0")"
 # Background image (regenerate from dmgbg.swift if missing).
 [ -f dmg-bg.png ] || { TMPBIN=$(mktemp -d); swiftc -O dmgbg.swift -o "$TMPBIN/mkbg" && "$TMPBIN/mkbg" dmg-bg.png; rm -rf "$TMPBIN"; }
 
+# Optional code signing for distribution. Set SIGN_ID to your Developer ID Application
+# identity, e.g. SIGN_ID="Developer ID Application: Andrew Parker (LZNV892WN2)".
+# Sign nested binaries first, then the bundle, all with the hardened runtime (notarization requires it).
+if [ -n "$SIGN_ID" ]; then
+    echo "Signing with: $SIGN_ID"
+    codesign --force --options runtime --timestamp -s "$SIGN_ID" ANC.app/Contents/MacOS/anc
+    codesign --force --options runtime --timestamp -s "$SIGN_ID" ANC.app/Contents/MacOS/ancbar
+    codesign --force --options runtime --timestamp -s "$SIGN_ID" ANC.app
+    codesign --verify --strict --verbose=2 ANC.app
+fi
+
 VOL="ANC"
 TMPDMG=$(mktemp -u).dmg
 rm -f ANC.dmg
@@ -51,8 +62,14 @@ sync
 hdiutil detach "$MNT" -quiet
 hdiutil convert "$TMPDMG" -format UDZO -o ANC.dmg -ov -quiet
 rm -f "$TMPDMG"
-# ponytail: unsigned/un-notarized — recipients must right-click > Open once.
-# To sign for real distribution, before hdiutil convert:
-#   codesign --deep --options runtime -s "Developer ID Application: NAME (TEAMID)" "$MNT/ANC.app"
-#   (then notarize ANC.dmg with: xcrun notarytool submit … && xcrun stapler staple ANC.dmg)
+
+# Optional notarization. Requires SIGN_ID above (Gatekeeper rejects an unsigned notarized DMG)
+# plus a stored notarytool credential profile named in NOTARY_PROFILE. Create it once with:
+#   xcrun notarytool store-credentials <profile> --apple-id <id> --team-id <TEAMID> --password <app-specific-pw>
+if [ -n "$NOTARY_PROFILE" ]; then
+    echo "Notarizing ANC.dmg (this can take a few minutes) …"
+    xcrun notarytool submit ANC.dmg --keychain-profile "$NOTARY_PROFILE" --wait
+    xcrun stapler staple ANC.dmg
+    xcrun stapler validate ANC.dmg
+fi
 echo "Built ANC.dmg ($(du -h ANC.dmg | cut -f1))"
