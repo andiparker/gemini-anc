@@ -16,7 +16,16 @@ swiftc -O anc.swift -o anc
 anc on            # noise cancellation
 anc off           # neutral
 anc transparency  # let ambient sound through
-anc status        # print the current mode
+anc status        # print the current mode + battery (left / right / case)
+```
+
+`anc status` reads the mode and all three battery levels over one connection, e.g.:
+
+```
+ANC on
+left  34%
+right 34%
+case  0%
 ```
 
 Bluetooth must be on and the buds powered/in range. First run scans for the
@@ -33,8 +42,9 @@ open ANC.app        # or just double-click it in Finder
 ```
 
 Double-clicking ANC.app launches it straight into the menu bar — no Terminal,
-no Dock icon. It shows the current mode with a checkmark and switches modes on
-click. Each action does a fresh BLE reconnect, so expect ~1.5–2.5s per click.
+no Dock icon. It shows the current mode with a checkmark, a battery line for
+both buds and the case, and switches modes on click. Each action does a fresh
+BLE reconnect, so expect ~1.5–2.5s per click.
 
 To run the front end bare instead: `swiftc -O ancbar.swift -o ancbar && ./ancbar`
 (double-clicking the bare binary opens Terminal; the `.app` does not). It finds

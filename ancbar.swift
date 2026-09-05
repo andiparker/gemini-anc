@@ -16,6 +16,7 @@ func ancBinary() -> String {
 
 final class App: NSObject, NSApplicationDelegate {
     var item: NSStatusItem!
+    var batteryItem: NSMenuItem!
     let bin = ancBinary()
     var busy = false
     var current: String?  // the CLI mode string, e.g. "on"
@@ -29,6 +30,8 @@ final class App: NSObject, NSApplicationDelegate {
             let mi = NSMenuItem(title: label, action: #selector(pick(_:)), keyEquivalent: "")
             mi.target = self; mi.representedObject = mode; menu.addItem(mi)
         }
+        menu.addItem(.separator())
+        batteryItem = NSMenuItem(title: "Battery: …", action: nil, keyEquivalent: ""); batteryItem.isEnabled = false; menu.addItem(batteryItem)
         menu.addItem(.separator())
         let r = NSMenuItem(title: "Refresh", action: #selector(refresh), keyEquivalent: "r"); r.target = self; menu.addItem(r)
         let q = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"); q.target = self; menu.addItem(q)
@@ -54,12 +57,18 @@ final class App: NSObject, NSApplicationDelegate {
     }
 
     func apply(_ output: String?) {
-        // Map CLI stdout back to a mode key; unknown/failed clears the checkmark.
-        current = output.flatMap { o in modes.first { $0.2 == o }?.1 }
-        item.button?.toolTip = output.map { "ANC: \($0)" } ?? "ANC: unavailable"
+        // `status` prints the mode on line 1 and one battery line per device below it;
+        // a mode write prints just the mode. Map line 1 to the checkmark either way.
+        let lines = (output ?? "").split(separator: "\n").map(String.init)
+        current = lines.first.flatMap { l in modes.first { $0.2 == l }?.1 }
+        item.button?.toolTip = lines.first.map { "ANC: \($0)" } ?? "ANC: unavailable"
         for mi in item.menu?.items ?? [] {
             if let m = mi.representedObject as? String { mi.state = (m == current) ? .on : .off }
         }
+        // Battery lines look like "left  34%"; collapse padding and show compactly. Only a status
+        // read carries them — leave the last-known value in place after a plain mode write.
+        let parts = lines.dropFirst().map { $0.split(separator: " ").filter { !$0.isEmpty }.joined(separator: " ") }
+        if !parts.isEmpty { batteryItem.title = "Battery:  " + parts.joined(separator: "   ·   ") }
     }
 
     @objc func pick(_ sender: NSMenuItem) {
