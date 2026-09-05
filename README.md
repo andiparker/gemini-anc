@@ -24,17 +24,21 @@ buds; later runs reconnect directly (see below).
 
 ## Menu-bar app
 
-A tiny menu-bar front end that shells out to `anc`:
+A tiny menu-bar front end that shells out to `anc`. Build it as a
+double-clickable app:
 
 ```sh
-swiftc -O ancbar.swift -o ancbar
-./ancbar
+./build-app.sh      # builds ANC.app with both binaries bundled
+open ANC.app        # or just double-click it in Finder
 ```
 
-It sits in the menu bar (no Dock icon), shows the current mode with a checkmark,
-and switches modes on click. Keep `ancbar` next to the `anc` binary, or point it
-at one with `ANC_BIN=/path/to/anc ./ancbar`. Each action does a fresh BLE
-reconnect, so expect ~1.5–2.5s per click.
+Double-clicking ANC.app launches it straight into the menu bar — no Terminal,
+no Dock icon. It shows the current mode with a checkmark and switches modes on
+click. Each action does a fresh BLE reconnect, so expect ~1.5–2.5s per click.
+
+To run the front end bare instead: `swiftc -O ancbar.swift -o ancbar && ./ancbar`
+(double-clicking the bare binary opens Terminal; the `.app` does not). It finds
+the `anc` binary via `$ANC_BIN`, a sibling binary, then `$PATH`.
 
 ## How it works
 
