@@ -4,6 +4,8 @@ Control active noise cancellation on **Devialet Gemini II** earbuds from macOS,
 over BLE â no phone app needed. A single Swift file talking to the Devialet
 Audio GATT service.
 
+<img src="docs/menu.png" alt="ANC menu-bar menu" width="250">
+
 ## Build
 
 ```sh
