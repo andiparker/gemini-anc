@@ -19,9 +19,19 @@ let batSvcs: [(uuid: CBUUID, label: String)] = [
 
 let peerCache = NSHomeDirectory() + "/.anc-peer"  // cached peripheral UUID: skip the scan on later runs
 let timeout: TimeInterval = 20  // ponytail: cold start (buds waking from case) can be slow; raise if it still clips
+let minRSSI = -70               // ponytail: proximity floor (dBm) to avoid a stranger's buds; tune per environment
+let pickWindow: TimeInterval = 1.5  // collect advertisers this long before choosing, so the nearest can win
+
+// Cold-scan device selection (pure, so it's unit-testable): a lone Devialet is yours; when several are
+// in range, require one above the proximity floor and take the strongest (your own buds are closest).
+func chooseCandidate(_ cs: [(id: UUID, rssi: Int)], floor: Int) -> UUID? {
+    if cs.count == 1 { return cs.first?.id }
+    return cs.filter { $0.rssi >= floor }.max(by: { $0.rssi < $1.rssi })?.id
+}
 
 final class ANC: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     let want: UInt8?; var c: CBCentralManager!; var dev: CBPeripheral?; var scanning = false; var cachePath = false; var done = false
+    var candidates: [UUID: (p: CBPeripheral, rssi: Int)] = [:]  // cold-scan advertisers, best RSSI per device
     var expected = 0; var received = 0; var mode: UInt8?; var bat: [CBUUID: UInt8] = [:]  // status reads
     init(want: UInt8?) { self.want = want; super.init(); c = CBCentralManager(delegate: self, queue: nil) }
     func die(_ s: String) -> Never { FileHandle.standardError.write((s + "\n").data(using: .utf8)!); exit(1) }
@@ -46,7 +56,21 @@ final class ANC: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             }
         } else { scan() }
     }
-    func scan() { guard !scanning else { return }; scanning = true; c.scanForPeripherals(withServices: nil) }
+    func scan() {
+        guard !scanning else { return }; scanning = true
+        c.scanForPeripherals(withServices: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + pickWindow) { self.pickNearest() }
+    }
+    // Choose from the advertisers collected so far; if none qualifies yet, wait and re-check (timeout caps it).
+    func pickNearest() {
+        guard dev == nil else { return }
+        let list = candidates.map { (id: $0.key, rssi: $0.value.rssi) }
+        if let id = chooseCandidate(list, floor: minRSSI), let cand = candidates[id] {
+            c.stopScan(); dev = cand.p; cand.p.delegate = self; c.connect(cand.p)
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.pickNearest() }
+        }
+    }
 
     // A cached peripheral can be gone or be a different device with no Devialet audio service. Rather than
     // fail, drop it and fall back to a fresh scan — but only once (a real scan failing then does die).
@@ -54,14 +78,16 @@ final class ANC: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         guard cachePath, !scanning else { die(msg) }
         cachePath = false
         if let d = dev { c.cancelPeripheralConnection(d) }
-        dev = nil; expected = 0; received = 0; mode = nil; bat = [:]
+        dev = nil; expected = 0; received = 0; mode = nil; bat = [:]; candidates = [:]
         scan()
     }
 
     func centralManager(_ c: CBCentralManager, didDiscover p: CBPeripheral, advertisementData ad: [String: Any], rssi: NSNumber) {
         // Devialet company id 0x0258 in manufacturer data; the buds don't advertise a name or service UUID.
         guard dev == nil, let m = ad[CBAdvertisementDataManufacturerDataKey] as? Data, m.count >= 2, m[0] == 0x58, m[1] == 0x02 else { return }
-        c.stopScan(); dev = p; p.delegate = self; c.connect(p)
+        let r = rssi.intValue
+        guard r != 127 else { return }  // 127 = RSSI unavailable
+        candidates[p.identifier] = (p, max(candidates[p.identifier]?.rssi ?? Int.min, r))  // collect; pickNearest decides
     }
     func centralManager(_ c: CBCentralManager, didConnect p: CBPeripheral) {
         if (try? p.identifier.uuidString.write(toFile: peerCache, atomically: true, encoding: .utf8)) != nil {
@@ -122,7 +148,15 @@ final class ANC: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
 }
 
 let arg = CommandLine.arguments.dropFirst().first ?? ""
-if arg == "selftest" { assert(modes["on"] == 0 && modes["off"] == 1 && modes["transparency"] == 2 && names.count == 3 && batSvcs.count == 3); print("ok"); exit(0) }
+if arg == "selftest" {
+    assert(modes["on"] == 0 && modes["off"] == 1 && modes["transparency"] == 2 && names.count == 3 && batSvcs.count == 3)
+    let a = UUID(), b = UUID()
+    assert(chooseCandidate([(a, -90)], floor: -70) == a)              // lone device accepted even if weak (it's yours)
+    assert(chooseCandidate([(a, -50), (b, -80)], floor: -70) == a)    // ambiguous → strongest above the floor
+    assert(chooseCandidate([(a, -80), (b, -85)], floor: -70) == nil)  // ambiguous, all too far → none
+    assert(chooseCandidate([], floor: -70) == nil)
+    print("ok"); exit(0)
+}
 guard arg == "status" || modes[arg] != nil else { print("usage: anc on|off|transparency|status"); exit(2) }
 let anc = ANC(want: modes[arg])
 RunLoop.main.run(until: Date().addingTimeInterval(timeout))

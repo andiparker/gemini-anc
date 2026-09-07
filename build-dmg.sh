@@ -102,6 +102,9 @@ hdiutil detach "$MNT" -quiet; MNT=""
 hdiutil convert "$TMPDMG" -format UDZO -o ANC.dmg -ov -quiet
 rm -f "$TMPDMG"; TMPDMG=""
 
+# Sign the DMG container too (belt-and-suspenders; the app inside is already signed).
+[ -n "$SIGN_ID" ] && codesign --force --timestamp -s "$SIGN_ID" ANC.dmg
+
 if [ -n "$NOTARY_PROFILE" ]; then
     echo "Notarizing ANC.dmg (this can take a few minutes) …"
     xcrun notarytool submit ANC.dmg --keychain-profile "$NOTARY_PROFILE" --wait
