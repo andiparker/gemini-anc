@@ -100,7 +100,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: "ANC",
-            .applicationVersion: "1.0",
+            .applicationVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev",
             .credits: NSAttributedString(string: "Devialet Gemini II noise-cancellation control"),
             .init(rawValue: "Copyright"): "© 2026 Andi Parker",
         ])

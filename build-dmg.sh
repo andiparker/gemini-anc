@@ -19,6 +19,18 @@ if [ -n "$SIGN_ID" ]; then
     codesign --verify --strict --verbose=2 ANC.app
 fi
 
+# Notarize + staple the APP itself (via a zip) before packaging, so the app carries its own
+# ticket and opens offline once dragged out of the DMG. The DMG is notarized separately below.
+if [ -n "$NOTARY_PROFILE" ]; then
+    echo "Notarizing ANC.app …"
+    ZIP=$(mktemp -u).zip
+    ditto -c -k --keepParent ANC.app "$ZIP"
+    xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+    rm -f "$ZIP"
+    xcrun stapler staple ANC.app
+    spctl -a -vvv --type exec ANC.app   # Gatekeeper gate: must print "accepted / Notarized Developer ID"
+fi
+
 VOL="ANC"
 TMPDMG=$(mktemp -u).dmg
 rm -f ANC.dmg
@@ -70,6 +82,6 @@ if [ -n "$NOTARY_PROFILE" ]; then
     echo "Notarizing ANC.dmg (this can take a few minutes) …"
     xcrun notarytool submit ANC.dmg --keychain-profile "$NOTARY_PROFILE" --wait
     xcrun stapler staple ANC.dmg
-    xcrun stapler validate ANC.dmg
+    xcrun stapler validate ANC.dmg   # confirms the DMG's own stapled ticket (the app was gated above)
 fi
 echo "Built ANC.dmg ($(du -h ANC.dmg | cut -f1))"
