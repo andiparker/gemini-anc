@@ -1,7 +1,7 @@
 # gemini-anc
 
 Control active noise cancellation on **Devialet Gemini II** earbuds from macOS,
-over BLE — no phone app needed. A single Swift file talking to the Devialet
+over BLE — no companion app needed. A single Swift file talking to the Devialet
 Audio GATT service.
 
 <img src="docs/menu.png" alt="ANC menu-bar menu" width="250">
@@ -90,7 +90,7 @@ submits the DMG to Apple and staples the ticket. Create the profile once with
 - **First run asks for Bluetooth access.** Grant it in the prompt, or later in System
   Settings → Privacy & Security → Bluetooth. Until granted, everything shows an error.
 - **"Earbuds not found":** take the buds out of the case and make sure they aren't
-  actively connected to your phone. A cold first find can take up to ~10s.
+  actively connected to another device. A cold first find can take up to ~10s.
 - **"Bluetooth is off":** turn Bluetooth on.
 - The menu bar shows the specific reason (Bluetooth off, access needed, earbuds not
   found) rather than a generic failure.
@@ -115,6 +115,39 @@ After the first connect it caches the peripheral's UUID to `~/.anc-peer` and
 reconnects to it directly on later runs, skipping the scan-for-advertisement
 wait. Warm runs are ~1.5–2.5s versus ~8–13s cold. If the cached device is stale
 or out of range, it falls back to a fresh scan.
+
+## Changelog
+
+### v1.0.3 — 2026-09-07
+- Stricter cold-scan pairing so it won't connect to a stranger's Gemini II: a
+  lone device is used, but when several are in range it picks the nearest above a
+  signal-strength floor. After the first pairing it only reconnects to your
+  saved device.
+- Sign the DMG container in addition to the app.
+
+### v1.0.2 — 2026-09-07
+- Menu shows the actual reason on failure (Bluetooth off, access needed, earbuds
+  not found) instead of a generic "unavailable".
+- A failed mode switch is reported as failed, not painted as success.
+- First-run Bluetooth permission handled; distinct off / denied / unsupported states.
+- `status` tolerates a flaky battery read and still shows partial results.
+- Menu-bar icon reflects the current mode; low buds flagged; a click made during a
+  refresh is queued. Added Start at Login.
+- Cached-device recovery, faster failures, and build/release hardening (git-tag
+  versioning, safer DMG mounting, unstyled-DMG guard).
+
+### v1.0.1 — 2026-09-07
+- Added the required Bluetooth usage description; the notarized app was otherwise
+  terminated on Bluetooth access on a clean machine.
+- Universal build (Apple Silicon + Intel) pinned to macOS 13, replacing an
+  arm64-only binary tied to the build host's OS.
+- App bundle notarized and stapled, not just the DMG, so it opens offline.
+- Bundle version metadata; README corrections.
+
+### v1.0 — 2026-09-05
+- Initial release: menu-bar app and CLI to switch Noise Cancellation /
+  Transparency / Off and read battery over BLE. Signed with a Developer ID and
+  notarized.
 
 ## Notes
 
