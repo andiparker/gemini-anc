@@ -90,7 +90,8 @@ submits the DMG to Apple and staples the ticket. Create the profile once with
 - **First run asks for Bluetooth access.** Grant it in the prompt, or later in System
   Settings → Privacy & Security → Bluetooth. Until granted, everything shows an error.
 - **"Earbuds not found":** take the buds out of the case and make sure they aren't
-  actively connected to another device. A cold first find can take up to ~10s.
+  actively connected to another device. Keep them near the Mac: the first find ignores
+  weak signals so it can't pick up someone else's buds. A cold first find can take up to ~10s.
 - **"Bluetooth is off":** turn Bluetooth on.
 - The menu bar shows the specific reason (Bluetooth off, access needed, earbuds not
   found) rather than a generic failure.
@@ -117,6 +118,17 @@ wait. Warm runs are ~1.5–2.5s versus ~8–13s cold. If the cached device is st
 or out of range, it falls back to a fresh scan.
 
 ## Changelog
+
+### v1.0.4 — 2026-11-26
+- The proximity floor now applies to a lone device too, so a stranger's buds that
+  happen to be the only ones advertising are no longer used. Keep your buds near
+  the Mac for the first find.
+- The device is only remembered after an ANC read/write succeeds on it, not on
+  bare connect.
+- Fix the stale-saved-device fallback: it exited with "disconnected" instead of
+  rescanning.
+- `anc selftest` now actually fails on a broken check (its asserts were compiled
+  out of optimized builds).
 
 ### v1.0.3 — 2026-09-07
 - Stricter cold-scan pairing so it won't connect to a stranger's Gemini II: a

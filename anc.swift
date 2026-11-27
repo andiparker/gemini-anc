@@ -22,11 +22,10 @@ let timeout: TimeInterval = 20  // ponytail: cold start (buds waking from case) 
 let minRSSI = -70               // ponytail: proximity floor (dBm) to avoid a stranger's buds; tune per environment
 let pickWindow: TimeInterval = 1.5  // collect advertisers this long before choosing, so the nearest can win
 
-// Cold-scan device selection (pure, so it's unit-testable): a lone Devialet is yours; when several are
-// in range, require one above the proximity floor and take the strongest (your own buds are closest).
+// Cold-scan device selection (pure, so it's unit-testable): only a device above the proximity floor
+// qualifies — even a lone one, which may be a stranger's — and the strongest wins (your own buds are closest).
 func chooseCandidate(_ cs: [(id: UUID, rssi: Int)], floor: Int) -> UUID? {
-    if cs.count == 1 { return cs.first?.id }
-    return cs.filter { $0.rssi >= floor }.max(by: { $0.rssi < $1.rssi })?.id
+    cs.filter { $0.rssi >= floor }.max(by: { $0.rssi < $1.rssi })?.id
 }
 
 final class ANC: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
@@ -89,15 +88,18 @@ final class ANC: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         guard r != 127 else { return }  // 127 = RSSI unavailable
         candidates[p.identifier] = (p, max(candidates[p.identifier]?.rssi ?? Int.min, r))  // collect; pickNearest decides
     }
-    func centralManager(_ c: CBCentralManager, didConnect p: CBPeripheral) {
+    // Remember the device only once it has proven to be a Gemini (ANC write/read succeeded), never on bare connect.
+    func saveCache(_ p: CBPeripheral) {
         if (try? p.identifier.uuidString.write(toFile: peerCache, atomically: true, encoding: .utf8)) != nil {
             try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: peerCache)
         }
+    }
+    func centralManager(_ c: CBCentralManager, didConnect p: CBPeripheral) {
         p.discoverServices(want != nil ? [svc] : [svc] + batSvcs.map { $0.uuid })
     }
     func centralManager(_ c: CBCentralManager, didFailToConnect p: CBPeripheral, error: Error?) { rescanOrDie("connect failed: \(error.map { "\($0)" } ?? "")") }
     func centralManager(_ c: CBCentralManager, didDisconnectPeripheral p: CBPeripheral, error: Error?) {
-        guard !done else { return }  // our own post-success teardown, ignore
+        guard !done, p === dev else { return }  // our own teardown (post-success, or a dropped cached device), ignore
         rescanOrDie("disconnected: \(error.map { "\($0)" } ?? "")")
     }
 
@@ -130,7 +132,7 @@ final class ANC: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     func peripheral(_ p: CBPeripheral, didWriteValueFor ch: CBCharacteristic, error: Error?) {
         // .withResponse: a successful callback means the GATT write landed — that is the confirmation.
         if let e = error { die("write failed: \(e)") }
-        done = true; print(names[Int(want!)]); c.cancelPeripheralConnection(p); exit(0)
+        done = true; saveCache(p); print(names[Int(want!)]); c.cancelPeripheralConnection(p); exit(0)
     }
     func peripheral(_ p: CBPeripheral, didUpdateValueFor ch: CBCharacteristic, error: Error?) {
         if error == nil, let v = ch.value?.first {  // status path only; a failed read just leaves that slot out
@@ -141,6 +143,7 @@ final class ANC: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     func finish() {
         guard received >= expected else { return }
         done = true
+        if mode != nil, let d = dev { saveCache(d) }
         print(mode.map { $0 < 3 ? names[Int($0)] : "unknown mode \($0)" } ?? "unknown")
         for b in batSvcs { if let lvl = bat[b.uuid] { print("\(b.label.padding(toLength: 6, withPad: " ", startingAt: 0))\(lvl)%") } }
         if let d = dev { c.cancelPeripheralConnection(d) }; exit(0)
@@ -148,13 +151,14 @@ final class ANC: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
 }
 
 let arg = CommandLine.arguments.dropFirst().first ?? ""
-if arg == "selftest" {
-    assert(modes["on"] == 0 && modes["off"] == 1 && modes["transparency"] == 2 && names.count == 3 && batSvcs.count == 3)
+if arg == "selftest" {  // precondition, not assert: assert is compiled out under -O
+    precondition(modes["on"] == 0 && modes["off"] == 1 && modes["transparency"] == 2 && names.count == 3 && batSvcs.count == 3)
     let a = UUID(), b = UUID()
-    assert(chooseCandidate([(a, -90)], floor: -70) == a)              // lone device accepted even if weak (it's yours)
-    assert(chooseCandidate([(a, -50), (b, -80)], floor: -70) == a)    // ambiguous → strongest above the floor
-    assert(chooseCandidate([(a, -80), (b, -85)], floor: -70) == nil)  // ambiguous, all too far → none
-    assert(chooseCandidate([], floor: -70) == nil)
+    precondition(chooseCandidate([(a, -90)], floor: -70) == nil)            // lone but weak → could be a stranger's, rejected
+    precondition(chooseCandidate([(a, -60)], floor: -70) == a)              // lone and near → accepted
+    precondition(chooseCandidate([(a, -50), (b, -80)], floor: -70) == a)    // ambiguous → strongest above the floor
+    precondition(chooseCandidate([(a, -80), (b, -85)], floor: -70) == nil)  // all too far → none
+    precondition(chooseCandidate([], floor: -70) == nil)
     print("ok"); exit(0)
 }
 guard arg == "status" || modes[arg] != nil else { print("usage: anc on|off|transparency|status"); exit(2) }
